@@ -1,0 +1,333 @@
+---
+version: "3.9"
+services:
+  # swag:
+  #   image: lscr.io/linuxserver/swag:latest
+  #   container_name: swag
+  #   cap_add:
+  #     - NET_ADMIN
+  #   restart: unless-stopped
+  #   environment:
+  #     - PUID=1000
+  #     - PGID=100
+  #     - TZ=America/Chicago
+  #     - URL=codeclutch.org
+  #     - VALIDATION=dns
+  #     - SUBDOMAINS=wildcard #optional
+  #     - CERTPROVIDER= #optional
+  #     - DNSPLUGIN=cloudflare #optional
+  #     - PROPAGATION= #optional
+  #     - DUCKDNSTOKEN= #optional
+  #     - EMAIL=codeclutch@gmail.com #optional
+  #     - ONLY_SUBDOMAINS=false #optional
+  #     - EXTRA_DOMAINS= #optional
+  #     - STAGING=false #optional
+  #     - DOCKER_MODS="linuxserver/mods:universal-docker|linuxserver/mods:swag-auto-proxy|linuxserver/mods:swag-auto-reload|linuxserver/mods:swag-dashboard"
+  #   volumes:
+  #     - /server/clutch/appdata/SWAG:/config
+  #     - /server/clutch/logs/SWAG:/var/log
+  #     - /var/run/docker.sock:/var/run/docker.sock:ro
+  #   networks:
+  #     - clutch_default
+  #   ports:
+  #     - 443:443
+  #     - 80:80 #optional
+  #   profiles: ["core"]
+  #   logging:
+  #     options:
+  #       max-size: "4m"
+  #       max-file: "10"
+
+  proxmgr:
+    image: 'jc21/nginx-proxy-manager:latest'
+    container_name: proxmgr
+    restart: unless-stopped
+    environment:
+      - VIRTUAL_HOST=proxmgr.codeclutch.com
+      - VIRTUAL_PORT=443
+      - PUID=1000
+      - PGID=100
+      - TZ=America/Chicago
+    labels:
+      - swag=enable
+    ports:
+      - '80:80'
+      - '81:81'
+      - '443:443'
+    networks:
+      - clutch_default
+    volumes:
+      - /server/clutch/appdata/proxmgr/data:/data
+      - /server/clutch/appdata/proxmgr/letsencrypt:/etc/letsencrypt
+    logging:
+      options:
+        max-size: "4m"
+        max-file: "10"
+    # depends_on:
+    #   - swag
+    profiles:
+      - core
+
+  portal:
+    container_name: portal
+    image: ghcr.io/enchant97/web-portal:2
+    restart: unless-stopped
+    environment:
+      - VIRTUAL_HOST=portal.codeclutch.org
+      - VIRTUAL_PORT=443
+      - "ROCKET_SECRET_KEY=3zMk1feDkqIX1ycYIVp2FyFvmrjm52sy8AeBLf2TxgY="
+       # This config is built into the Docker image
+      # - "DATA_PATH=/app/data"
+      - "DB_URI=sqlite:///data/db.sqlite"
+      # This must be secure
+      - "SECRET_KEY=replace_me_12377"
+    labels:
+      - swag=enable
+      #- swag_address=portainer
+      #- swag_port=80
+      #- swag_url=portainer.codeclutch.org
+    volumes:
+      - /server/clutch/appdata/portal/data:/data
+      - /server/clutch/appdata/portal/icons:/app/icons
+      - /server/clutch/appdata/portal/config.yml:/app/config.yml
+    networks:
+      - clutch_default
+    ports:
+      - 8001:8000
+    logging:
+      options:
+        max-size: "4m"
+        max-file: "10"
+    # depends_on:
+    #   - swag
+    profiles:
+      - core
+
+
+  portainer:
+    image: portainer/portainer-ce:2.9.3
+    container_name: portainer
+    command: -H unix:///var/run/docker.sock
+    restart: unless-stopped
+    environment:
+      - VIRTUAL_HOST=portainer.codeclutch.org
+      - VIRTUAL_PORT=9443
+    labels:
+      - swag=enable
+      #- swag_address=portainer
+      #- swag_port=80
+      #- swag_url=portainer.codeclutch.org
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /server/clutch/appdata/portainer:/data
+    networks:
+      - clutch_default
+    ports:
+  #    - 8000:8000
+      - 9000:9000
+      - 9443:9443
+    logging:
+      options:
+        max-size: "4m"
+        max-file: "10"
+    # depends_on:
+    #   - swag
+    profiles:
+      - core
+
+  dashy:
+    container_name: dashy
+    image: lissy93/dashy:latest
+    restart: unless-stopped
+    environment:
+      - VIRTUAL_HOST=dashy.codeclutch.org
+      - VIRTUAL_PORT=4000
+
+    labels:
+      - swag=enable
+      #- swag_address=dashy
+      #- swag_port=80
+      #- swag_url=dashy.codeclutch.org
+    volumes:
+      - /server/clutch/appdata/dashy/data:/data
+      - /server/clutch/appdata/dashy/my-local-conf.yml:/app/public/conf.yml'
+    networks:
+      - clutch_default
+    ports:
+      - 4000:80
+    logging:
+      options:
+        max-size: "4m"
+        max-file: "10"
+    # depends_on:
+    #   - swag
+    profiles:
+      - core
+  
+  sonarr:
+    image:  'linuxserver/sonarr:preview'
+    container_name: "sonarr"
+    restart: unless-stopped
+    environment:
+      - 'VIRTUAL_HOST=sonarr.codeclutch.org'
+      - 'VIRTUAL_PORT=8989'
+      - 'PUID=1000'
+      - 'PGID=100'
+      - 'TZ=America/Chicago'
+    labels:
+      - 'swag=enable'
+      #- 'swag_address=sonarr'
+      #- 'swag_url=sonarr.codeclutch.org'
+    volumes:
+      - '/server/clutch/appdata/sonarr:/data'
+      - '/etc/localtime:/etc/localtime:ro'
+      - '/server/usermedia/tvshows:/tv'
+      - '/server/usermedia/downloads:/downloads'
+    networks:
+      - clutch_default
+    ports:
+      - '8989:8989'
+    logging:
+      options:
+        max-size: "4m"
+        max-file: "10"
+    # depends_on:
+    #   - 'swag'
+    profiles:
+      - 'servarr'
+  lidarr:
+    image:  'linuxserver/lidarr:latest'
+    container_name: "lidarr"
+    restart: unless-stopped
+    environment:
+      - VIRTUAL_HOST=lidarr.codeclutch.org
+      - VIRTUAL_PORT=8686
+      - 'PUID=1000'
+      - 'PGID=100'
+      - 'TZ=America/Chicago'
+    labels:
+      - 'swag=enable'
+     # - 'swag_address=lidarr'
+     #- 'swag_url=lidarr.codeclutch.org'
+    volumes:
+      - '/server/clutch/appdata/lidarr:/data'
+      - '/etc/localtime:/etc/localtime:ro'
+      - '/server/usermedia/music:/music'
+      - '/server/usermedia/downloads:/downloads'
+    networks:
+      - 'clutch_default'
+    ports:
+      - '8686:8686'
+    logging:
+      options:
+        max-size: "4m"
+        max-file: "10"
+    # depends_on:
+    #   - swag
+    profiles:
+      - 'servarr'
+
+     
+  hydra2:
+    image:  'linuxserver/hydra2:latest'
+    container_name: "hydra2"
+    restart: unless-stopped
+    environment:
+      - VIRTUAL_HOST=hydra2.codeclutch.org
+      - VIRTUAL_PORT=5076
+      - 'PUID=1000'
+      - 'PGID=100'
+      - 'TZ=America/Chicago'
+    labels:
+      - 'swag=enable'
+     # - 'swag_address=hydra2'
+     #- 'swag_url=hydra2.codeclutch.org'
+    volumes:
+      - '/server/clutch/appdata/hydra2:/data'
+      - '/etc/localtime:/etc/localtime:ro'
+      - '/server/usermedia/downloads:/downloads'
+    networks:
+      - 'clutch_default'
+    ports:
+      - '5076:5076'
+    logging:
+      options:
+        max-size: "4m"
+        max-file: "10"
+    # depends_on:
+    #   - swag
+    profiles:
+      - 'download'
+
+        
+  nzbget:
+    image:  'linuxserver/hydra2:latest'
+    container_name: "nzbget"
+    restart: unless-stopped
+    environment:
+      - VIRTUAL_HOST=nzbget.codeclutch.org
+      - VIRTUAL_PORT=6789
+      - 'PUID=1000'
+      - 'PGID=100'
+      - 'TZ=America/Chicago'
+      - 'NZBGET_USER=nzbget'
+      - 'NZBGET_PASS=tegbzn6789'
+    labels:
+      - 'swag=enable'
+     # - 'swag_address=nzbget'
+     #- 'swag_url=nzbget.codeclutch.org'
+    volumes:
+      - '/server/clutch/appdata/nzbget:/data'
+      - '/etc/localtime:/etc/localtime:ro'
+      - '/server/usermedia/downloads:/downloads'
+    networks:
+      - 'clutch_default'
+    ports:
+      - '6789:6789'
+    logging:
+      options:
+        max-size: "4m"
+        max-file: "10"
+    # depends_on:
+    #   - swag
+    profiles:
+      - 'download' 
+  sabnzbd:
+    image:  'linuxserver/sabnzbd:latest'
+    container_name: "sabnzbd"
+    restart: unless-stopped
+    environment:
+      - VIRTUAL_HOST=sabnzbd.codeclutch.org
+      - VIRTUAL_PORT=8080
+      - 'PUID=1000'
+      - 'PGID=100'
+      - 'TZ=America/Chicago'
+    labels:
+      - 'swag=enable'
+     # - 'swag_address=sabnzbd'
+     #- 'swag_url=sabnzbd.codeclutch.org'
+    volumes:
+      - '/server/clutch/appdata/nzbget:/data'
+      - '/etc/localtime:/etc/localtime:ro'
+      - '/server/usermedia/downloads:/downloads'
+    networks:
+      - 'clutch_default'
+    ports:
+      - '8080:8080'
+    logging:
+      options:
+        max-size: "4m"                             555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555
+        max-file: "10"
+    # depends_on:
+    #   - swag
+    profiles:
+      - 'download' 
+  
+
+networks:
+  clutch_default:
+    external: true
+    name: "clutch_default"
+    
+      
+
